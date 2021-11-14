@@ -204,8 +204,8 @@ def save_plot(examples, epoch, n=10):
 
 
 def main():
-    training_path = r"D:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
-    testing_path = r"D:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Test"
+    training_path = r"fruits-360_dataset\fruits-360\Training"
+    testing_path = r"fruits-360_dataset\fruits-360\Test"
     batch_size = 256
     testing_batch_size = 25
     image_size = 32
