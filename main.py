@@ -20,6 +20,7 @@ from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras import Model
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 # Custom Libraries
 
@@ -205,18 +206,19 @@ def save_plot(examples, epoch, n=10):
     plt.close()
 
 
-def save_model(model, epoch):
+def save_model(model, image_size, model_version):
     Path("models").mkdir(parents=True, exist_ok=True)
-    filename = "models/model_e{:03d}.h5".format(epoch+1)
+    filename = "models/rgb_image_generator_gan_model_is{}_v{}.h5".format(image_size, model_version)
     model.save(filename)
 
 
 def main():
     training_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
     testing_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Test"
+    model_version = 0
     batch_size = 256
     testing_batch_size = 25
-    image_size = 32
+    image_size = 128
 
     testing_batch = get_test_batch(testing_path, testing_batch_size, image_size)
 
@@ -241,7 +243,7 @@ def main():
         testing_images = generator(testing_images).numpy()
         testing_images = np.array(convert_lab2rgb(testing_images))
         save_plot(testing_images, e, 5)
-        save_model(generator, e)
+        save_model(generator, image_size, model_version)
 
 
 if __name__ == "__main__":
