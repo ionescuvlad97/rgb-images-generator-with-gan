@@ -1,5 +1,4 @@
 # Standard Libraries
-import ssl
 from pathlib import Path
 from PIL import Image
 import os
@@ -10,17 +9,17 @@ from matplotlib import pyplot as plt
 from skimage import color
 from skimage.transform import resize
 import tensorflow as tf
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Conv2D
-from keras.layers import Flatten
-from keras.layers import Dropout
-from keras.layers import LeakyReLU
-from keras.layers import Input
-from keras.layers import MaxPooling2D
-from keras.layers import UpSampling2D
-from keras.layers import Concatenate
-from keras import Model
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import LeakyReLU
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import UpSampling2D
+from tensorflow.keras.layers import Concatenate
+from tensorflow.keras import Model
 
 # Custom Libraries
 
@@ -143,8 +142,10 @@ def define_generator():
 
 
 def discriminator_loss(real_output, fake_output):
-    real_loss = cross_entropy(tf.ones_like(real_output) - tf.random.uniform( shape=real_output.shape , maxval=0.1), real_output)
-    fake_loss = cross_entropy(tf.zeros_like(fake_output) + tf.random.uniform( shape=fake_output.shape , maxval=0.1), fake_output)
+    real_loss = cross_entropy(tf.ones_like(real_output) - tf.random.uniform(shape=real_output.shape,
+                                                                            maxval=0.1), real_output)
+    fake_loss = cross_entropy(tf.zeros_like(fake_output) + tf.random.uniform(shape=fake_output.shape,
+                                                                             maxval=0.1), fake_output)
     total_loss = real_loss + fake_loss
     return total_loss
 
@@ -189,6 +190,7 @@ def train_step(input_x, real_y, generator, discriminator, generator_optimizer, d
 
 
 def save_plot(examples, epoch, n=10):
+    Path("generated_images").mkdir(parents=True, exist_ok=True)
     # plot images
     for i in range(n * n):
         # define subplot
@@ -198,14 +200,20 @@ def save_plot(examples, epoch, n=10):
         # plot raw pixel data
         plt.imshow(examples[i, :, :, 0], cmap='gray_r')
     # save plot to file
-    filename = 'generated_images/generated_plot_e%03d.png' % (epoch+1)
+    filename = 'generated_images/generated_plot_e{:03d}.png'.format(epoch+1)
     plt.savefig(filename)
     plt.close()
 
 
+def save_model(model, epoch):
+    Path("models").mkdir(parents=True, exist_ok=True)
+    filename = "models/model_e{:03d}.h5".format(epoch+1)
+    model.save(filename)
+
+
 def main():
-    training_path = r"fruits-360_dataset\fruits-360\Training"
-    testing_path = r"fruits-360_dataset\fruits-360\Test"
+    training_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
+    testing_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Test"
     batch_size = 256
     testing_batch_size = 25
     image_size = 32
@@ -228,14 +236,13 @@ def main():
             # Here ( x , y ) represents a batch from our training dataset.
             train_step(x, y, generator, discriminator, generator_optimizer, discriminator_optimizer, e+1, b)
             b += 1
-            # print("Epoch: {}, Batch: {}".format(e+1, b))
 
         testing_images = np.array(get_lightness(convert_rgb2lab(testing_batch)))
         testing_images = generator(testing_images).numpy()
         testing_images = np.array(convert_lab2rgb(testing_images))
         save_plot(testing_images, e, 5)
+        save_model(generator, e)
 
 
 if __name__ == "__main__":
     main()
-
