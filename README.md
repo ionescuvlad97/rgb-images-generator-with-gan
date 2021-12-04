@@ -1,5 +1,6 @@
 # Generate RGB Images Using GAN Architecture
-
+Neural Network that generates color images from gray scale images using a Convolutional Autoencoder Network 
+and GAN Architecture.
 ## Table of Contents
 
 - [About](#about)
