@@ -1,4 +1,5 @@
 # Standard Libraries
+import random
 from pathlib import Path
 from PIL import Image
 import os
@@ -37,30 +38,25 @@ def show_images(images, length, width):
         plt.imshow(images[i])
 
 
-def data_generator(path, b_size, new_size):
+def train_test_split(path, train_size):
+    dataset_paths_list = list(Path(path).rglob('*.jpg'))
+    random.Random(42).shuffle(dataset_paths_list)
+    threshold = int(train_size*len(dataset_paths_list))
+    training_paths_list = dataset_paths_list[:threshold]
+    testing_path_list = dataset_paths_list[threshold:]
+
+    return training_paths_list, testing_path_list
+
+
+def data_generator(path_list, b_size, new_size):
     result = []
-    for image_path in Path(path).rglob('*.jpg'):
+    for image_path in path_list:
         image = plt.imread(image_path)
         image_resized = resize(image, (new_size, new_size), anti_aliasing=True)
         result.append(image_resized)
         if len(result) % b_size == 0:
             yield result
             result = []
-
-
-def get_test_batch(path, b_size, new_size):
-    result = []
-    count = 0
-    for d in os.listdir(path):
-        for image_path in os.listdir(os.path.join(path, d)):
-            image = plt.imread(os.path.join(path, d, image_path))
-            image_resized = resize(image, (new_size, new_size), anti_aliasing=True)
-            result.append(image_resized)
-            break
-        count += 1
-        if count == b_size:
-            break
-    return result
 
 
 def convert_rgb2lab(images):
@@ -79,9 +75,9 @@ def convert_tensor2image(images):
     return [np.asarray(Image.fromarray(image)) for image in images]
 
 
-def define_discriminator(in_shape=(32, 32, 3)):
+def define_discriminator(input_shape):
     model = Sequential()
-    model.add(Conv2D(64, (3, 3), strides=(2, 2), padding='same', input_shape=in_shape))
+    model.add(Conv2D(64, (3, 3), strides=(2, 2), padding='same', input_shape=input_shape))
     model.add(LeakyReLU(alpha=0.2))
     model.add(Dropout(0.4))
     model.add(Conv2D(64, (3, 3), strides=(2, 2), padding='same'))
@@ -93,9 +89,9 @@ def define_discriminator(in_shape=(32, 32, 3)):
     return model
 
 
-def define_generator():
+def define_generator(input_shape):
 
-    inputs = tf.keras.layers.Input(shape=(32, 32, 1))
+    inputs = tf.keras.layers.Input(shape=input_shape)
 
     conv1 = tf.keras.layers.Conv2D(16, kernel_size=(5, 5), strides=1)(inputs)
     conv1 = tf.keras.layers.LeakyReLU()(conv1)
@@ -172,8 +168,6 @@ def train_step(input_x, real_y, generator, discriminator, generator_optimizer, d
         # Log loss for the discriminator
         disc_loss = discriminator_loss(real_output, generated_output)
 
-    # tf.keras.backend.print_tensor(tf.keras.backend.mean(gen_loss))
-    # tf.keras.backend.print_tensor(gen_loss + disc_loss)
     print("Epoch: {}, Batch: {}, Generator Loss: {:.2f}, Discriminator Loss {:.2f}".format(
         e,
         b,
@@ -213,31 +207,39 @@ def save_model(model, image_size, model_version):
 
 
 def main():
-    training_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
-    testing_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Test"
+    dataset_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
+    train_test_split_percent = 0.8
+    training_path_list, testing_path_list = train_test_split(dataset_path, train_test_split_percent)
     model_version = 0
     batch_size = 256
     testing_batch_size = 25
-    image_size = 128
+    training_iterations_per_epoch = 4
+    num_epochs = 20
+    image_size = 32
+    input_shape_generator = (image_size, image_size, 1)
+    input_shape_discriminator = (image_size, image_size, 3)
 
-    testing_batch = get_test_batch(testing_path, testing_batch_size, image_size)
+    testing_generator = data_generator(testing_path_list, testing_batch_size, image_size)
+    testing_batch = next(testing_generator)
 
     generator_optimizer = tf.keras.optimizers.Adam(0.0005)
     discriminator_optimizer = tf.keras.optimizers.Adam(0.0005)
 
-    generator = define_generator()
-    discriminator = define_discriminator()
-
-    num_epochs = 20
+    generator = define_generator(input_shape_generator)
+    discriminator = define_discriminator(input_shape_discriminator)
 
     for e in range(num_epochs):
         b = 1
-        for data in data_generator(training_path, batch_size, image_size):
+        iterations_count = 0
+        for data in data_generator(training_path_list, batch_size, image_size):
             y = np.array(convert_rgb2lab(data))
             x = np.array(get_lightness(y))
             # Here ( x , y ) represents a batch from our training dataset.
             train_step(x, y, generator, discriminator, generator_optimizer, discriminator_optimizer, e+1, b)
             b += 1
+            iterations_count += 1
+            if iterations_count == training_iterations_per_epoch:
+                break
 
         testing_images = np.array(get_lightness(convert_rgb2lab(testing_batch)))
         testing_images = generator(testing_images).numpy()
@@ -246,5 +248,13 @@ def main():
         save_model(generator, image_size, model_version)
 
 
+def test():
+    training_path = r"E:\Politehnica\Master\Disertatie\Datasets\fruits-360_dataset\fruits-360\Training"
+    x1, x2 = train_test_split(training_path, 0.85)
+    print(x1[:5], len(x1))
+    print(x2[:5], len(x2))
+
+
 if __name__ == "__main__":
     main()
+    # test()
