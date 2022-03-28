@@ -1,6 +1,6 @@
 pip
 matplotlib~=3.5.0
-tensorflow~=2.7.0
+tensorflow-gpu
 scikit-learn
 scikit-image~=0.18.3
 numpy~=1.21.4
