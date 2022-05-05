@@ -4,6 +4,7 @@ from pathlib import Path
 from PIL import Image
 import os
 import math
+import pickle
 
 # Third Party Libraries
 import numpy as np
@@ -38,6 +39,29 @@ def create_directory_tree(database_name):
     Path("models/{}".format(database_name)).mkdir(parents=True, exist_ok=True)
     Path("results/{}/generated_images".format(database_name)).mkdir(parents=True, exist_ok=True)
     Path("results/{}/metrics".format(database_name)).mkdir(parents=True, exist_ok=True)
+    Path("results/{}/parameters".format(database_name)).mkdir(parents=True, exist_ok=True)
+
+
+def save_parameters(database_name, model_version, batch_size, training_iterations_per_epoch,
+                    num_epochs, image_size, final_gen_loss, final_disc_loss,
+                    total_training_time, avg_time):
+    file_path = "results/{}/parameters/model_parameters.txt".format(database_name)
+    with open(file_path, 'w') as f:
+        f.write("Model version: {}".format(model_version) + "\n")
+        f.write("Image size: {}".format(image_size) + "\n")
+        f.write("Num epochs: {}".format(num_epochs) + "\n")
+        f.write("Iterations per epoch: {}".format(training_iterations_per_epoch) + "\n")
+        f.write("Batch size: {}".format(batch_size) + "\n")
+        f.write("Final generator loss: {}".format(final_gen_loss) + "\n")
+        f.write("Final discriminator loss: {}".format(final_disc_loss) + "\n")
+        f.write("Total training time: {}".format(total_training_time) + "\n")
+        f.write("Average epoch time: {}".format(avg_time) + "\n")
+
+
+def save_losses(database_name, file_name, loss_lst):
+    file_path_gen = "results/{}/parameters/{}".format(database_name, file_name)
+    with open(file_path_gen, 'wb') as fp:
+        pickle.dump(loss_lst, fp)
 
 
 def show_images(images, length, width):
@@ -98,7 +122,94 @@ def define_discriminator(input_shape):
     return model
 
 
-def define_generator(input_shape):
+def define_generator_v2(input_shape):
+
+    inputs = tf.keras.layers.Input(shape=input_shape)
+    print(np.shape(inputs))
+
+    print("Encoder Block 1")
+    encoder_b1 = tf.keras.layers.Conv2D(8, kernel_size=(3, 3), padding='same', strides=1)(inputs)
+    encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
+    print(np.shape(encoder_b1))
+    encoder_b1 = tf.keras.layers.Conv2D(16, kernel_size=(3, 3), padding='same', strides=1)(encoder_b1)
+    encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
+    print(np.shape(encoder_b1))
+    encoder_b1 = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), padding='same', strides=1)(encoder_b1)
+    encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
+    print(np.shape(encoder_b1))
+
+    print("Encoder Block 2")
+    encoder_b2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b1)
+    print(np.shape(encoder_b2))
+    encoder_b2 = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), padding='same', strides=1)(encoder_b2)
+    encoder_b2 = tf.keras.layers.LeakyReLU()(encoder_b2)
+    print(np.shape(encoder_b2))
+    encoder_b2 = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), padding='same', strides=1)(encoder_b2)
+    encoder_b2 = tf.keras.layers.LeakyReLU()(encoder_b2)
+    print(np.shape(encoder_b2))
+
+    print("Encoder Block 3")
+    encoder_b3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b2)
+    print(np.shape(encoder_b3))
+    encoder_b3 = tf.keras.layers.Conv2D(256, kernel_size=(3, 3), padding='same', strides=1)(encoder_b3)
+    encoder_b3 = tf.keras.layers.LeakyReLU()(encoder_b3)
+    print(np.shape(encoder_b3))
+    encoder_b3 = tf.keras.layers.Conv2D(512, kernel_size=(3, 3), padding='same', strides=1)(encoder_b3)
+    encoder_b3 = tf.keras.layers.LeakyReLU()(encoder_b3)
+    print(np.shape(encoder_b3))
+
+    print("Bottleneck")
+    bottleneck = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b3)
+    print(np.shape(bottleneck))
+    bottleneck = tf.keras.layers.Conv2D(1024, kernel_size=(3, 3), padding='same', strides=1)(bottleneck)
+    bottleneck = tf.keras.layers.LeakyReLU()(bottleneck)
+    print(np.shape(bottleneck))
+    bottleneck = tf.keras.layers.Conv2DTranspose(512, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(bottleneck)
+    print(np.shape(bottleneck))
+
+    print("Decoder Block 3")
+    decoder_b3 = tf.keras.layers.Concatenate()([bottleneck, encoder_b3])
+    print(np.shape(decoder_b3))
+    decoder_b3 = tf.keras.layers.Conv2DTranspose(512, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b3)
+    print(np.shape(decoder_b3))
+    decoder_b3 = tf.keras.layers.Conv2DTranspose(256, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b3)
+    print(np.shape(decoder_b3))
+    decoder_b3 = tf.keras.layers.Conv2DTranspose(128, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(decoder_b3)
+    print(np.shape(decoder_b3))
+
+    print("Decoder Block 2")
+    decoder_b2 = tf.keras.layers.Concatenate()([decoder_b3, encoder_b2])
+    print(np.shape(decoder_b2))
+    decoder_b2 = tf.keras.layers.Conv2DTranspose(128, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b2)
+    print(np.shape(decoder_b2))
+    decoder_b2 = tf.keras.layers.Conv2DTranspose(64, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b2)
+    print(np.shape(decoder_b2))
+    decoder_b2 = tf.keras.layers.Conv2DTranspose(32, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(decoder_b2)
+    print(np.shape(decoder_b2))
+
+    print("Decoder Block 1")
+    decoder_b1 = tf.keras.layers.Concatenate()([decoder_b2, encoder_b1])
+    print(np.shape(decoder_b1))
+    decoder_b1 = tf.keras.layers.Conv2DTranspose(32, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
+    print(np.shape(decoder_b1))
+    decoder_b1 = tf.keras.layers.Conv2DTranspose(16, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
+    print(np.shape(decoder_b1))
+    decoder_b1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
+    print(np.shape(decoder_b1))
+
+    print("Output")
+    output = tf.keras.layers.Conv2DTranspose(2, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
+    print(np.shape(output))
+    output = Concatenate()([inputs, output])
+    print(np.shape(output))
+
+    print("Autoencoder")
+    autoencoder = Model(inputs, output)
+
+    return autoencoder
+
+
+def define_generator_v1(input_shape):
     inputs = tf.keras.layers.Input(shape=input_shape)
 
     conv1 = tf.keras.layers.Conv2D(16*4, kernel_size=(5, 5), strides=1)(inputs)

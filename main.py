@@ -1,5 +1,6 @@
 # Standard Libraries
 import os
+import time
 
 # Third Party Libraries
 import numpy as np
@@ -15,7 +16,8 @@ from utils import convert_lab2rgb
 from utils import convert_rgb2lab
 from utils import get_lightness
 from utils import define_discriminator
-from utils import define_generator
+from utils import define_generator_v1
+from utils import define_generator_v2
 from utils import train_step
 from utils import save_plot
 from utils import plot_results
@@ -23,6 +25,8 @@ from utils import save_model
 from utils import get_reference_images
 from utils import create_directory_tree
 from utils import calculate_inception_score
+from utils import save_losses
+from utils import save_parameters
 
 # Global Variables
 tf.config.run_functions_eagerly(True)
@@ -38,14 +42,19 @@ def main():
     # -------------- Variables -------------- #
     dataset_path = r"D:\Datasets\fruits-360\Training"
     reference_images_path = r"D:\Datasets\fruits-360\Test"
-    model_version = 0
-    database_name = 'fruits'
+    model_version = 2
     train_test_split_percent = 0.8
-    batch_size = 128
+    batch_size = 64 # 128
     reference_images_batch_size = 25
-    training_iterations_per_epoch = 50
+    training_iterations_per_epoch = 200
     num_epochs = 25
-    image_size = 32
+    image_size = 64 # 32
+
+    database_name = 'fruits_v{}_is{}_e{}_bs{}_it{}'.format(model_version,
+                                                           image_size,
+                                                           num_epochs,
+                                                           batch_size,
+                                                           training_iterations_per_epoch)
 
     create_directory_tree(database_name)
 
@@ -64,14 +73,19 @@ def main():
     generator_optimizer = tf.keras.optimizers.Adam(0.0005)
     discriminator_optimizer = tf.keras.optimizers.Adam(0.0005)
 
-    generator = define_generator(input_shape_generator)
+    # -------------- Models -------------- #
+    # Select generator model - v1 or v2
+    generator = define_generator_v1(input_shape_generator)
     discriminator = define_discriminator(input_shape_discriminator)
 
     gen_loss = []
     disc_loss = []
     ic_score = []
     ic_score_std = []
+    time_list = []
 
+    start_train_time = time.time()
+    # -------------- Training -------------- #
     for e in range(num_epochs):
         b = 1
         iterations_count = 0
@@ -79,6 +93,8 @@ def main():
         sum_disc_loss = 0
         sum_ic_score = 0
         sum_ic_score = 0
+        start_epoch_time = time.time()
+
         for data in data_generator(training_path_list, batch_size, image_size):
             y = np.array(convert_rgb2lab(data))
             x = np.array(get_lightness(y))
@@ -95,14 +111,6 @@ def main():
 
             if iterations_count == training_iterations_per_epoch:
                 break
-        avg_gen_loss = sum_gen_loss / training_iterations_per_epoch
-        avg_disc_loss = sum_disc_loss / training_iterations_per_epoch
-        gen_loss.append(avg_gen_loss)
-        disc_loss.append(avg_disc_loss)
-
-        print("Epoch: {}, Average Generator Loss: {:.2f}, Average Discriminator Loss {:.2f}".format(e + 1,
-                                                                                                    avg_gen_loss,
-                                                                                                    avg_disc_loss))
 
         testing_images_gray = np.array(get_lightness(convert_rgb2lab(reference_images)))
         testing_images_generated = generator(testing_images_gray).numpy()
@@ -111,6 +119,21 @@ def main():
         # save_plot(testing_images, image_path, 5)
         plot_results(testing_images_gray, reference_images, testing_images_generated, image_path, n=5)
         save_model(generator, image_size, model_version, database_name)
+
+        avg_gen_loss = sum_gen_loss / training_iterations_per_epoch
+        avg_disc_loss = sum_disc_loss / training_iterations_per_epoch
+        gen_loss.append(avg_gen_loss)
+        disc_loss.append(avg_disc_loss)
+        total_epoch_time = time.time() - start_epoch_time
+        time_list.append(total_epoch_time)
+        print("Epoch: {}, Average Generator Loss: {:.2f}, Average Discriminator Loss {:.2f}, Epoch time: {:.2f}s"
+              .format(e + 1,
+                      avg_gen_loss,
+                      avg_disc_loss,
+                      total_epoch_time))
+
+    avg_time = sum(time_list)/len(time_list)
+    total_training_time = time.time() - start_train_time
 
     plt.figure(1)
     plt.plot(range(1, num_epochs + 1), gen_loss)
@@ -129,6 +152,20 @@ def main():
     plt.savefig(filename)
     plt.close()
     plt.show()
+
+    save_parameters(database_name,
+                    model_version,
+                    batch_size,
+                    training_iterations_per_epoch,
+                    num_epochs,
+                    image_size,
+                    gen_loss[-1],
+                    disc_loss[-1],
+                    total_training_time,
+                    avg_time)
+
+    save_losses(database_name, 'gen_loss', gen_loss)
+    save_losses(database_name, 'disc_loss', disc_loss)
 
     print(gen_loss)
     print(disc_loss)
