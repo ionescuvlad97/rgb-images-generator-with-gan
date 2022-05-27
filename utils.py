@@ -92,6 +92,7 @@ def train_test_split(path, train_size):
 def save_np_train_images(dataset_path, dataset_name, new_size, overwrite=False, max_img=20000):
     if overwrite:
         dataset_paths_list = list(Path(dataset_path).rglob('*.jpg'))
+        random.Random(42).shuffle(dataset_paths_list)
         result = []
         for image_path in dataset_paths_list[:max_img]:
             image = plt.imread(image_path)
