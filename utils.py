@@ -42,6 +42,14 @@ def create_directory_tree(database_name):
     Path("results/{}/parameters".format(database_name)).mkdir(parents=True, exist_ok=True)
 
 
+def create_testing_directory_tree(database_name):
+    Path("testing_results/{}".format(database_name)).mkdir(parents=True, exist_ok=True)
+    Path("testing_results/{}/generated_images".format(database_name)).mkdir(parents=True, exist_ok=True)
+    Path("testing_results/{}/np_images".format(database_name)).mkdir(parents=True, exist_ok=True)
+    Path("testing_results/{}/metrics".format(database_name)).mkdir(parents=True, exist_ok=True)
+    Path("np_test_images").mkdir(parents=True, exist_ok=True)
+
+
 def save_parameters(database_name, model_version, batch_size, training_iterations_per_epoch,
                     num_epochs, image_size, final_gen_loss, final_disc_loss,
                     total_training_time, avg_time):
@@ -79,6 +87,30 @@ def train_test_split(path, train_size):
     testing_path_list = dataset_paths_list[threshold:]
 
     return training_paths_list, testing_path_list
+
+
+def save_np_train_images(dataset_path, dataset_name, new_size, overwrite=False, max_img=20000):
+    if overwrite:
+        dataset_paths_list = list(Path(dataset_path).rglob('*.jpg'))
+        result = []
+        for image_path in dataset_paths_list[:max_img]:
+            image = plt.imread(image_path)
+            image_resized = resize(image, (new_size, new_size), anti_aliasing=True)
+            result.append(image_resized)
+        np.save("np_test_images/test_images_{}_{}.npy".format(dataset_name, new_size), result)
+    else:
+        print("The images are already saved in numpy format. If you want to save them again set overwrite=True")
+
+
+def get_one_example_per_class(path, new_size):
+    result = []
+    for d in os.listdir(path):
+        for image_path in os.listdir(os.path.join(path, d)):
+            image = plt.imread(os.path.join(path, d, image_path))
+            image_resized = resize(image, (new_size, new_size), anti_aliasing=True)
+            result.append(image_resized)
+            break
+    return np.array(result)
 
 
 def data_generator(path_list, b_size, new_size):
@@ -125,85 +157,85 @@ def define_discriminator(input_shape):
 def define_generator_v2(input_shape):
 
     inputs = tf.keras.layers.Input(shape=input_shape)
-    print(np.shape(inputs))
+    # print(np.shape(inputs))
 
-    print("Encoder Block 1")
+    # print("Encoder Block 1")
     encoder_b1 = tf.keras.layers.Conv2D(8, kernel_size=(3, 3), padding='same', strides=1)(inputs)
     encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
-    print(np.shape(encoder_b1))
+    # print(np.shape(encoder_b1))
     encoder_b1 = tf.keras.layers.Conv2D(16, kernel_size=(3, 3), padding='same', strides=1)(encoder_b1)
     encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
-    print(np.shape(encoder_b1))
+    # print(np.shape(encoder_b1))
     encoder_b1 = tf.keras.layers.Conv2D(32, kernel_size=(3, 3), padding='same', strides=1)(encoder_b1)
     encoder_b1 = tf.keras.layers.LeakyReLU()(encoder_b1)
-    print(np.shape(encoder_b1))
+    # print(np.shape(encoder_b1))
 
-    print("Encoder Block 2")
+    # print("Encoder Block 2")
     encoder_b2 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b1)
-    print(np.shape(encoder_b2))
+    # print(np.shape(encoder_b2))
     encoder_b2 = tf.keras.layers.Conv2D(64, kernel_size=(3, 3), padding='same', strides=1)(encoder_b2)
     encoder_b2 = tf.keras.layers.LeakyReLU()(encoder_b2)
-    print(np.shape(encoder_b2))
+    # print(np.shape(encoder_b2))
     encoder_b2 = tf.keras.layers.Conv2D(128, kernel_size=(3, 3), padding='same', strides=1)(encoder_b2)
     encoder_b2 = tf.keras.layers.LeakyReLU()(encoder_b2)
-    print(np.shape(encoder_b2))
+    # print(np.shape(encoder_b2))
 
-    print("Encoder Block 3")
+    # print("Encoder Block 3")
     encoder_b3 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b2)
-    print(np.shape(encoder_b3))
+    # print(np.shape(encoder_b3))
     encoder_b3 = tf.keras.layers.Conv2D(256, kernel_size=(3, 3), padding='same', strides=1)(encoder_b3)
     encoder_b3 = tf.keras.layers.LeakyReLU()(encoder_b3)
-    print(np.shape(encoder_b3))
+    # print(np.shape(encoder_b3))
     encoder_b3 = tf.keras.layers.Conv2D(512, kernel_size=(3, 3), padding='same', strides=1)(encoder_b3)
     encoder_b3 = tf.keras.layers.LeakyReLU()(encoder_b3)
-    print(np.shape(encoder_b3))
+    # print(np.shape(encoder_b3))
 
-    print("Bottleneck")
+    # print("Bottleneck")
     bottleneck = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid")(encoder_b3)
-    print(np.shape(bottleneck))
+    # print(np.shape(bottleneck))
     bottleneck = tf.keras.layers.Conv2D(1024, kernel_size=(3, 3), padding='same', strides=1)(bottleneck)
     bottleneck = tf.keras.layers.LeakyReLU()(bottleneck)
-    print(np.shape(bottleneck))
+    # print(np.shape(bottleneck))
     bottleneck = tf.keras.layers.Conv2DTranspose(512, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(bottleneck)
-    print(np.shape(bottleneck))
+    # print(np.shape(bottleneck))
 
-    print("Decoder Block 3")
+    # print("Decoder Block 3")
     decoder_b3 = tf.keras.layers.Concatenate()([bottleneck, encoder_b3])
-    print(np.shape(decoder_b3))
+    # print(np.shape(decoder_b3))
     decoder_b3 = tf.keras.layers.Conv2DTranspose(512, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b3)
-    print(np.shape(decoder_b3))
+    # print(np.shape(decoder_b3))
     decoder_b3 = tf.keras.layers.Conv2DTranspose(256, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b3)
-    print(np.shape(decoder_b3))
+    # print(np.shape(decoder_b3))
     decoder_b3 = tf.keras.layers.Conv2DTranspose(128, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(decoder_b3)
-    print(np.shape(decoder_b3))
+    # print(np.shape(decoder_b3))
 
-    print("Decoder Block 2")
+    # print("Decoder Block 2")
     decoder_b2 = tf.keras.layers.Concatenate()([decoder_b3, encoder_b2])
-    print(np.shape(decoder_b2))
+    # print(np.shape(decoder_b2))
     decoder_b2 = tf.keras.layers.Conv2DTranspose(128, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b2)
-    print(np.shape(decoder_b2))
+    # print(np.shape(decoder_b2))
     decoder_b2 = tf.keras.layers.Conv2DTranspose(64, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b2)
-    print(np.shape(decoder_b2))
+    # print(np.shape(decoder_b2))
     decoder_b2 = tf.keras.layers.Conv2DTranspose(32, kernel_size=(3, 3), strides=2, padding='same', activation='relu')(decoder_b2)
-    print(np.shape(decoder_b2))
+    # print(np.shape(decoder_b2))
 
-    print("Decoder Block 1")
+    # print("Decoder Block 1")
     decoder_b1 = tf.keras.layers.Concatenate()([decoder_b2, encoder_b1])
-    print(np.shape(decoder_b1))
+    # print(np.shape(decoder_b1))
     decoder_b1 = tf.keras.layers.Conv2DTranspose(32, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
-    print(np.shape(decoder_b1))
+    # print(np.shape(decoder_b1))
     decoder_b1 = tf.keras.layers.Conv2DTranspose(16, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
-    print(np.shape(decoder_b1))
+    # print(np.shape(decoder_b1))
     decoder_b1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
-    print(np.shape(decoder_b1))
+    # print(np.shape(decoder_b1))
 
-    print("Output")
+    # print("Output")
     output = tf.keras.layers.Conv2DTranspose(2, kernel_size=(3, 3), strides=1, padding='same', activation='relu')(decoder_b1)
-    print(np.shape(output))
+    # print(np.shape(output))
     output = Concatenate()([inputs, output])
-    print(np.shape(output))
+    # print(np.shape(output))
 
-    print("Autoencoder")
+    # print("Autoencoder")
     autoencoder = Model(inputs, output)
 
     return autoencoder
@@ -372,21 +404,25 @@ def scale_images(images, new_shape):
 
 
 def calculate_inception_score(images, n_split=10, eps=1E-16):
+    print(np.shape(images))
     # load inception v3 model
     model = InceptionV3()
     # enumerate splits of images/predictions
     scores = list()
     n_part = math.floor(images.shape[0] / n_split)
+    print(n_part)
     for i in range(n_split):
         # retrieve images
         ix_start, ix_end = i * n_part, (i + 1) * n_part
         subset = images[ix_start:ix_end]
+        print(np.shape(subset))
         # convert from uint8 to float32
         subset = subset.astype('float32')
         # scale images to the required size
         subset = scale_images(subset, (299, 299, 3))
         # pre-process images, scale to [-1,1]
         subset = preprocess_input(subset)
+        print(np.shape(subset))
         # predict p(y|x)
         p_yx = model.predict(subset)
         # calculate p(y)

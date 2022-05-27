@@ -44,11 +44,11 @@ def main():
     reference_images_path = r"D:\Datasets\fruits-360\Test"
     model_version = 2
     train_test_split_percent = 0.8
-    batch_size = 64 # 128
+    batch_size = 64
     reference_images_batch_size = 25
-    training_iterations_per_epoch = 200
+    training_iterations_per_epoch = 256
     num_epochs = 25
-    image_size = 64 # 32
+    image_size = 64
 
     database_name = 'fruits_v{}_is{}_e{}_bs{}_it{}'.format(model_version,
                                                            image_size,
@@ -70,12 +70,12 @@ def main():
     plt.savefig(filename)
     plt.close()
 
-    generator_optimizer = tf.keras.optimizers.Adam(0.0005)
-    discriminator_optimizer = tf.keras.optimizers.Adam(0.0005)
+    generator_optimizer = tf.keras.optimizers.Adam(learning_rate=0.00005, epsilon=0.01)
+    discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=0.00005, epsilon=0.01)
 
     # -------------- Models -------------- #
     # Select generator model - v1 or v2
-    generator = define_generator_v1(input_shape_generator)
+    generator = define_generator_v2(input_shape_generator)
     discriminator = define_discriminator(input_shape_discriminator)
 
     gen_loss = []
